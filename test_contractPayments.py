@@ -1,6 +1,6 @@
-from ethereum import tester
+from ethereum.tools import tester # Eason: move to tools/
 from ethereum import utils
-from ethereum._solidity import get_solidity
+from ethereum.tools._solidity import get_solidity # Eason: move to tools/
 SOLIDITY_AVAILABLE = get_solidity() is not None
 
 import bitcoin
@@ -17,10 +17,15 @@ zfill = lambda s: (32-len(s))*'\x00' + s
 flatten = lambda x: [z for y in x for z in y]
 
 def broadcast(p, r, h, sig):
-    print 'player[%d]'%p.i, 'broadcasts', r, h.encode('hex'), sig
+    print 'player[%d]'%p.i, 'broadcasts'
+    print '\tround',r
+    print '\th', h.encode('hex')
+    print '\tsignature', sig
 
 def broadcastCommitment(p, r, m):
-    print 'player[%d]'%p.i, 'opens', r, m.encode('hex')
+    print 'player[%d]'%p.i, 'opens'
+    print '\tround', r
+    print '\tm', m.encode('hex')
 
 def sign(h, priv):
     assert len(h) == 32
@@ -49,7 +54,9 @@ class Player():
         assert self.lastOpenRound == self.lastClosedRound
         assert hashes[self.i] == utils.sha3(m)
         self.hashes = hashes
+	# Eason: commitment list
         self.h = utils.sha3(zfill(utils.int_to_bytes(r)) + ''.join(hashes))
+	# Eason: hash all commitment with round
         self.m = m
         sig = sign(self.h, self.sk)
         broadcast(self, r, self.h, sig)
@@ -106,19 +113,19 @@ class Player():
         assert latestClaim in (self.lastOpenRound, self.lastClosedRound)
         g = s.block.gas_used                    
         
-        if latestClaim == self.lastOpenRound:
+        if latestClaim == self.lastOpenRound:#Eason: Open commitments for all nodes
             # Reveal the current message, we may not get the final output,
             # but if not, at least we will get COMPENSATION
             contract.openCommitment(self.m)
 
         # Reveal the last round message, which we already have output for
         (_, hashes, _, m, openings) = self.lastRound
-        contract.openCommitment(m)
+        contract.openCommitment(m)#Eason: open self commitment
         for (opening, h) in zip(openings, hashes):
             # We will have to sort this round
             assert h == utils.sha3(opening)
             contract.openCommitment(opening)
-
+            #Eason: open everone commtiment, 1 for 1 tx
         print 'respondT2:', s.block.gas_used - g
 
     def readLastRound(self):
@@ -133,14 +140,14 @@ class Player():
 
 
 # Create the simulated blockchain
-s = tester.state()
+s = tester.Chain() #Eason: state()-->Chain()
 s.mine()
 tester.gas_limit = 3141592
 
 # Create the contract
 contract_code = open('contractSmartAmortizePayments.sol').read()
-contract = s.abi_contract(contract_code, language='solidity')
-
+contract = s.contract(contract_code, language='solidity')
+#Eason: abi_contract() --> contract
 keys = [tester.k1,
         tester.k2,
         tester.k3,
@@ -160,21 +167,24 @@ def shares_of_message(m, n):
     return shares
 
 def partialRound(players, round, shares):
-    hashes = map(utils.sha3, shares)    
-    print 'Opening the round for each player'
+    hashes = map(utils.sha3, shares)
+    # commitments of all people    
+    print '** Opening the round for each player'
     sigs = []
     for shr,p in zip(shares,players):
         assert round == p.lastOpenRound + 1
         sigs.append(p.subprotocolOutput(round, hashes, shr))
     return sigs
 
-def completeRound(players, round, shares):
+def completeRound(players, round, shares):# commit(,receive) and sign commtiments
     hashes = map(utils.sha3, shares)
     sigs = partialRound(players, round, shares)
-
-    print 'Distributing signatures'
+    # Eason: get collection of (sig of all shares)
+    
+    print '** Distributing signatures'
     for p in players:
         p.receiveSignatures(round, sigs)
+        # Eason: receive signature then open commitments
         p.receiveOpenings(round, shares)
 
 # Play a few rounds
@@ -199,25 +209,26 @@ def test_OK():
     players = [Player(sk, i, contract) for i,sk in enumerate(keys)]
 
     for round in range(3):
-        # Pick some arbitrary payment distribution, summing to 100
+        print '======= it\'s round ',round,' ============='
+	# Pick some arbitrary payment distribution, summing to 100
         shares = shares_of_message(encode_balance([10,4,86]), len(players))
-        completeRound(players, round, shares)
+	completeRound(players, round, shares)
 
     # Anyone can trigger a recovery
     print 'Triggering'
     contract.trigger(sender=keys[0])
 
-    # Allow everyone to respond to the trigger
+    # Allow "everyone" to respond to the trigger
     for p in players:
         print 'player[%d]' % p.i, 'responding to T1'
-        p.respondT1()
+        p.respondT1()#Eason: commit on-chain
 
     #s.mine(15)
 
-    # Allow everyone to respond to the claim deadline
+    # Allow "everyone" to respond to the claim deadline
     for p in players:
         print 'player[%d]' % p.i, 'responding to T2'
-        p.respondT2()
+        p.respondT2()#Eason: Open on-chain
         
     s.mine(25);
     # Anyone can finalize
@@ -263,3 +274,4 @@ def test_1Bad():
     print 'Finalize:', s.block.gas_used - g
 
 
+test_OK()

@@ -10,6 +10,9 @@
 #      phi(a) = (g^a, h^a)
 # 
 
+##
+# Eason:
+# scrypt needs install again
 
 import sys
 sys.path += ['elliptic-curves-finite-fields']
@@ -135,8 +138,9 @@ def proof(X, Y, a):
 
     # commitment
     K = (k*G, k*H)
-
+    
     # use a hash function instead of communicating w/ verifier
+    #Eason: use Fiat-Shamir transformation 
     c = sha2_to_long(uint256_to_str(K[1].x.n)[::-1] + uint256_to_str(K[0].x.n)[::-1])
 
     # response
@@ -152,7 +156,7 @@ def verify(X, Y, prf):
 
     # Recompute c w/ the information given
     c = sha2_to_long(uint256_to_str(KY.x.n)[::-1] + uint256_to_str(KX.x.n)[::-1])
-    print c
+    print 'challege number:',c
 
     assert s.n *G == KX + c*X
     assert s.n *H == KY + c*Y
@@ -161,12 +165,12 @@ def verify(X, Y, prf):
 
 
 
-from ethereum import tester
+from ethereum.tools import tester # Eason: move to tools/
 from ethereum import utils
-from ethereum._solidity import get_solidity
+from ethereum.tools._solidity import get_solidity # Eason: move to tools/
 SOLIDITY_AVAILABLE = get_solidity() is not None
 
-import bitcoin
+import bitcoin # Eason: need install
 
 # Logging
 from ethereum import slogging
@@ -190,20 +194,21 @@ def sign(h, priv):
     return V,R,S
 
 # Create the simulated blockchain
-st = tester.state()
+st = tester.Chain() #Eason: state()-->Chain()
 st.mine()
 tester.gas_limit = 3141592
 
 # Create the contract
 contract_code = open('equalityproof.sol').read()
-contract = st.abi_contract(contract_code,
+contract = st.contract(contract_code,
                           language='solidity')
-
+#Eason: abi_contract() --> contract
+#need install solidity
 
 # Creating local proof
 
 print 'Creating local proof'
-a = sha2_to_long('hi1asfasf')
+a = sha2_to_long('helloZKP')
 X = a*G
 Y = a*H
 print 'a:', a
@@ -212,15 +217,18 @@ print 'h^a:', Y
 prf = (K, s) = proof(X,Y, a)
 verify(X,Y, (K, s))
 print 'Local Proof OK'
+#Eason: verify off-chain
 
 print 'Verifying with Solidity'
 g = st.block.gas_used
 contract.verifyZKP([X.x.n, X.y.n], [Y.x.n,Y.y.n], [K[0].x.n, K[0].y.n, 1], [K[1].x.n, K[1].y.n, 1], s.n)
 print 'Solidity OK'
 print 'Gas used:', st.block.gas_used - g
+#Eason: verify on-chain
 
 print 'Verifying with Solidity'
 g = st.block.gas_used
 contract.testmul()
 print 'Solidity OK'
 print 'Gas used:', st.block.gas_used - g
+#Eason: verify on-chain

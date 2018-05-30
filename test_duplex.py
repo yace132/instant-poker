@@ -1,6 +1,6 @@
-from ethereum import tester
+from ethereum.tools import tester # Eason: move to tools/
 from ethereum import utils
-from ethereum._solidity import get_solidity
+from ethereum.tools._solidity import get_solidity # Eason: move to tools/
 SOLIDITY_AVAILABLE = get_solidity() is not None
 
 import bitcoin
@@ -132,13 +132,14 @@ class Player():
 
 
 # Create the simulated blockchain
-s = tester.state()
+s = tester.Chain() #Eason: state()-->Chain()
 s.mine()
 tester.gas_limit = 3141592
 
 # Create the contract
 contract_code = open('contractSmartAmortizePayments.sol').read()
-contract = s.abi_contract(contract_code, language='solidity')
+contract = s.contract(contract_code, language='solidity')
+#Eason: abi_contract() --> contract
 
 keys = [tester.k1,
         tester.k2,

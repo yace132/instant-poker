@@ -66,7 +66,7 @@ contract SmartAmortize {
     }
 
     function submitClaim(uint[] sigs, int r, bytes32[] _commits)
-    after_(T1) before(T2) {
+    after_(T1) before(T2) {//Eason: with signatures of commitments, anyone can submit all commitments
 	var _h = sha3(r, _commits);
 	assert(sigs.length == 3 * players.length);
 
