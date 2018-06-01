@@ -167,10 +167,13 @@ def shares_of_message(m, n):
     return shares
 
 def partialRound(players, round, shares):
+    # 1 commitment
     hashes = map(utils.sha3, shares)
     # commitments of all people    
     print '** Opening the round for each player'
     sigs = []
+    # 2 sign state and broadcast
+    # state = commitments & round
     for shr,p in zip(shares,players):
         assert round == p.lastOpenRound + 1
         sigs.append(p.subprotocolOutput(round, hashes, shr))
@@ -181,6 +184,7 @@ def completeRound(players, round, shares):# commit(,receive) and sign commtiment
     sigs = partialRound(players, round, shares)
     # Eason: get collection of (sig of all shares)
     
+    # read state and update self informations
     print '** Distributing signatures'
     for p in players:
         p.receiveSignatures(round, sigs)
