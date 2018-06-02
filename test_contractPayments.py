@@ -82,6 +82,7 @@ class Player():
         self.lastRound = (self.sigs, self.hashes, self.h, self.m, openings)
 
     def respondT1(self):
+	# on-chain commit or upload the state to blockchain
         # It's time to submit our evidence
         assert not self.isTriggered
         self.isTriggered = True
@@ -167,12 +168,12 @@ def shares_of_message(m, n):
     return shares
 
 def partialRound(players, round, shares):
-    # 1 commitment
+    # 1 commitment("off-chain" tx)
     hashes = map(utils.sha3, shares)
     # commitments of all people    
     print '** Opening the round for each player'
     sigs = []
-    # 2 sign state and broadcast
+    # 2 sign state and broadcast("off-chain" mining)
     # state = commitments & round
     for shr,p in zip(shares,players):
         assert round == p.lastOpenRound + 1
@@ -188,6 +189,8 @@ def completeRound(players, round, shares):# commit(,receive) and sign commtiment
     print '** Distributing signatures'
     for p in players:
         p.receiveSignatures(round, sigs)
+	# read "off-chain" block & update local database
+	# open commitment (new "off-chain" tx)
         # Eason: receive signature then open commitments
         p.receiveOpenings(round, shares)
 
@@ -240,7 +243,7 @@ def test_OK():
     contract.finalize()
     print 'Finalize:', s.block.gas_used - g
 
-def test_1Bad():
+def test_1Bad():# only player 0 open
     #s.revert(base)  # Restore the snapshot
     players = [Player(sk, i, contract) for i,sk in enumerate(keys)]
 
@@ -278,4 +281,4 @@ def test_1Bad():
     print 'Finalize:', s.block.gas_used - g
 
 
-test_OK()
+test_1Bad()
