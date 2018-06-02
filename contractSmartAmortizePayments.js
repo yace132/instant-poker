@@ -86,6 +86,10 @@ contract SmartAmortize {
 	    secondBestRound = bestRound;
 	    bestRound = r;
 	} else if (r > secondBestRound) {
+            /*if submit the round again 
+            the 1st submit is bestRound
+	    the 2nd submit is secondBestRound
+	    ignore submit after 3*/ 
 	    secondBestRound = r;
 	}
 	LogNewClaim(r);
